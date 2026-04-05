@@ -1,0 +1,6 @@
+{
+  "input": {
+    "symbol": "AAPL",
+    "function": "QUOTE"
+  }
+}

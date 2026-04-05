@@ -1,0 +1,8 @@
+{
+  "input": {
+    "symbol": "BTC/USD",
+    "function": "TIME_SERIES",
+    "interval": "1day",
+    "outputsize": 30
+  }
+}

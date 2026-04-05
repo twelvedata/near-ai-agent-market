@@ -1,0 +1,8 @@
+{
+  "input": {
+    "symbol": "TSLA",
+    "function": "TIME_SERIES",
+    "interval": "5min",
+    "outputsize": 50
+  }
+}
