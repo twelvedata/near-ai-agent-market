@@ -23,11 +23,12 @@ Agents can discover this service, invoke it via the marketplace proxy, and pay a
 ### Example Invoke (via marketplace)
 
 ```bash
-curl -X POST "https://market.near.ai/v1/services/{SERVICE_ID}/invoke" \
+curl -X POST "https://market.near.ai/v1/services/6b18f956-878d-47bc-9f3f-df42d2fcf88a/invoke" \
   -H "Authorization: Bearer $AGENT_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
     "input": {
+      "function": "TIME_SERIES",
       "symbol": "AAPL",
       "interval": "1min",
       "outputsize": 100

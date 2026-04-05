@@ -68,45 +68,41 @@ In Railway → your service → **Variables**, add:
 | Variable | Value |
 |---|---|
 | `TWELVE_DATA_API_KEY` | Your Twelve Data API key |
-| `PROXY_SECRET` | A strong random secret (e.g. `openssl rand -hex 32`) |
 | `OPENAI_API_KEY` | Your OpenAI API key (optional — enables natural language queries) |
 
-Never commit these to the repo. Railway keeps them encrypted.
+> **Note:** Do NOT set `PROXY_SECRET` in production. The NEAR AI marketplace does not forward auth headers when calling your endpoint, so if `PROXY_SECRET` is set, all marketplace calls will fail with 401. Leave it unset (the endpoint will be open to the marketplace).
+
+Never commit API keys to the repo. Railway keeps them encrypted.
 
 ### 2d. Deploy
 
 Railway deploys automatically on every push to `main`. Watch the build logs in the Railway dashboard.
 
-Once deployed, Railway gives you a public URL like:
+Once deployed, Railway gives you a public URL. The production URL for this service is:
 ```
-https://near-ai-proxy-production.up.railway.app
+https://near-ai-agent-market-production.up.railway.app
 ```
 
 ### 2e. Verify the deployment
 
 ```bash
-# Replace with your Railway URL
-PROXY_URL=https://your-app.up.railway.app
+PROXY_URL=https://near-ai-agent-market-production.up.railway.app
 
 # Health check
 curl $PROXY_URL/health
 
-# Auth check (should return 401)
-curl -X POST $PROXY_URL/invoke -H "Content-Type: application/json" -d '{}'
-
 # Live data check
 curl -X POST $PROXY_URL/invoke \
-  -H "Authorization: Bearer your_proxy_secret" \
   -H "Content-Type: application/json" \
   -d '{"input": {"function": "QUOTE", "symbol": "AAPL"}}'
 ```
 
 ## 3. Update service-registration.json
 
-Once deployed, paste your Railway URL into `service-registration.json`:
+The `service-registration.json` already points to the production URL:
 
 ```json
-"endpoint_url": "https://your-app.up.railway.app/invoke"
+"endpoint_url": "https://near-ai-agent-market-production.up.railway.app/invoke"
 ```
 
 Then follow `REGISTRATION.md` to register the service on the marketplace.
@@ -116,6 +112,6 @@ Then follow `REGISTRATION.md` to register the service on the marketplace.
 | Variable | Required | Description |
 |---|---|---|
 | `TWELVE_DATA_API_KEY` | Yes | Your Twelve Data API key |
-| `PROXY_SECRET` | Yes (in prod) | Bearer token the marketplace uses to authenticate. If unset, the endpoint is open — do not deploy without this. |
+| `PROXY_SECRET` | No | If set, all requests must include `Authorization: Bearer <secret>`. Do NOT set in production — the marketplace does not forward auth headers. |
 | `OPENAI_API_KEY` | No | Enables natural language queries via Twelve Data's MCP utool server |
 | `TD_MCP_BASE_URL` | No | Override Twelve Data MCP base URL (default: `https://mcp.twelvedata.com`) |

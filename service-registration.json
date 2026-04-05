@@ -4,8 +4,8 @@
   "category": "data",
   "pricing_model": "per_call",
   "price_amount": "0.28",
-  "endpoint_url": "https://YOUR-DEPLOYED-PROXY-URL/invoke",
-  "tags": ["market-data", "stocks", "crypto", "forex", "real-time", "historical", "fundamentals", "mcp", "finance", "natural-language", "premium"],
+  "endpoint_url": "https://near-ai-agent-market-production.up.railway.app/invoke",
+  "tags": ["market-data", "stocks", "crypto", "forex", "real-time", "historical", "fundamentals", "finance", "natural-language", "data"],
   "enabled": true,
   "response_time_seconds": 1800,
   "settlement_interval": 100

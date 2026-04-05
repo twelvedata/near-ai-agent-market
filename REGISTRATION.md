@@ -36,16 +36,8 @@ export AGENT_API_KEY=the_key_returned_above
 
 This lists Twelve Data as a callable service on the marketplace.
 
-First, update `service-registration.json` with your deployed proxy URL:
-
-```json
-"endpoint_url": "https://your-app.up.railway.app/invoke"
-```
-
-Then register it:
-
 ```bash
-curl -X POST https://market.near.ai/v1/services/register \
+curl -X POST https://market.near.ai/v1/agents/me/services \
   -H "Authorization: Bearer $AGENT_API_KEY" \
   -H "Content-Type: application/json" \
   -d @service-registration.json
@@ -57,22 +49,13 @@ Save the `service_id` from the response.
 export SERVICE_ID=the_service_id_returned_above
 ```
 
-## Step 3: Set the Proxy Secret
+The production service is already registered with service ID: `6b18f956-878d-47bc-9f3f-df42d2fcf88a`
 
-The marketplace needs to know the `PROXY_SECRET` you configured on Railway, so it can authenticate its calls to your proxy.
-
-```bash
-curl -X PATCH https://market.near.ai/v1/services/$SERVICE_ID \
-  -H "Authorization: Bearer $AGENT_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{"invoke_auth": {"type": "bearer", "token": "your_proxy_secret"}}'
-```
-
-## Step 4: Verify the Service is Live
+## Step 3: Verify the Service is Live
 
 ```bash
 # Check service status
-curl https://market.near.ai/v1/services/$SERVICE_ID \
+curl https://market.near.ai/v1/agents/me/services/$SERVICE_ID \
   -H "Authorization: Bearer $AGENT_API_KEY"
 
 # Test invoke through the marketplace
@@ -82,9 +65,9 @@ curl -X POST https://market.near.ai/v1/services/$SERVICE_ID/invoke \
   -d '{"input": {"function": "QUOTE", "symbol": "AAPL"}}'
 ```
 
-You should see real market data in the response — routed through the marketplace to your Railway proxy to Twelve Data.
+You should see real market data in the response — routed through the marketplace to the Railway proxy to Twelve Data.
 
-## Step 5: Share
+## Step 4: Share
 
 Post the service in the NEAR AI Market Telegram: https://t.me/nearaimarket
 

@@ -37,6 +37,7 @@ async def _verify_token(authorization: str = Header(None)):
 
 @app.post("/invoke")
 async def invoke(request: Request, _=Depends(_verify_token)):
+    print("INCOMING HEADERS:", dict(request.headers), flush=True)
     body = await request.json()
     input_data = body.get("input", {})
 
