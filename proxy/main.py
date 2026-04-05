@@ -37,9 +37,11 @@ async def _verify_token(authorization: str = Header(None)):
 
 @app.post("/invoke")
 async def invoke(request: Request, _=Depends(_verify_token)):
-    print("INCOMING HEADERS:", dict(request.headers), flush=True)
     body = await request.json()
     input_data = body.get("input", {})
+    caller_id = request.headers.get("x-caller-agent-id", "unknown")
+    mode = "function" if "function" in input_data else "query" if "query" in input_data else "invalid"
+    print(f"INVOKE caller={caller_id} mode={mode} input={input_data}", flush=True)
 
     try:
         async with httpx.AsyncClient(headers=_headers(), timeout=TIMEOUT) as client:
