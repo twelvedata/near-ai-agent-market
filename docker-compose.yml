@@ -21,8 +21,8 @@ services:
 
   cron:
     build: ./cron
-    restart: unless-stopped
     env_file: .env
+    profiles: [tools]
 
 volumes:
   caddy_data:
