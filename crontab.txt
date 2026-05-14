@@ -1,3 +1,3 @@
-# Auto-withdraw NEAR earnings daily at 09:00 UTC.
+# Auto-withdraw NEAR earnings weekly, Mondays at 09:00 UTC.
 # Install on the VPS with: crontab /opt/near-ai-agent-market/crontab.txt
-0 9 * * * cd /opt/near-ai-agent-market && /usr/bin/docker compose run --rm cron >> /var/log/near-ai-withdraw.log 2>&1
+0 9 * * 1 cd /opt/near-ai-agent-market && /usr/bin/docker compose run --rm cron >> /var/log/near-ai-withdraw.log 2>&1
