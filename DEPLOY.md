@@ -146,10 +146,11 @@ Then follow `REGISTRATION.md` to re-register the service on the marketplace.
 
 | Variable | Required | Description |
 |---|---|---|
-| `TWELVE_DATA_API_KEY` | Yes | Your Twelve Data API key |
-| `OPENAI_API_KEY` | No | Enables natural language queries via Twelve Data's MCP utool server |
-| `PROXY_SECRET` | No | If set, requests must include `Authorization: Bearer <secret>`. Do NOT set in production — the marketplace does not forward auth headers. |
-| `TD_MCP_BASE_URL` | No | Override Twelve Data MCP base URL (default: `https://mcp.twelvedata.com`) |
+| `TWELVE_DATA_API_KEY` | Yes | Twelve Data API key (sent as `?apikey=` to the REST API) |
+| `OPENAI_API_KEY` | No | Passed to utool as `x-openapi-key` when NL fallback works |
+| `PROXY_SECRET` | No | If set, require `Authorization: Bearer …`. Do NOT set in production |
+| `TD_MCP_BASE_URL` | No | Base for default utool URL (default: `https://mcp.twelvedata.com`) |
+| `TD_UTOOL_URL` | No | Full utool URL. Hosted MCP `/utool` is 404; set only if you host NL yourself |
 | `AGENT_API_KEY` | Yes (cron) | NEAR AI marketplace API key, for balance/withdraw |
 | `TELEGRAM_BOT_TOKEN` | Yes (cron) | Telegram bot token for the daily report |
 | `TELEGRAM_CHAT_ID` | Yes (cron) | Telegram chat/user ID to message |

@@ -1,8 +1,13 @@
 # Twelve Data NEAR AI Agent Market — Registration & Setup Guide
 
+> **2026-09 update:** `market.near.ai` is no longer a service-registry discover UI.
+> Public listing is now **agents** (hire / webhook / pricing plans). See `RESTORE.md`
+> for diagnosis and the current restore path. Sections below describe the **legacy**
+> service-registration flow (still useful for `market-legacy` / historical ops).
+
 This guide walks you through registering Twelve Data as an official **data provider** (Service) on the [NEAR AI Agent Market](https://market.near.ai).
 
-**Last updated**: April 5, 2026
+**Last updated**: September 12, 2026
 
 ## Prerequisites
 - A NEAR wallet with ~2–5 NEAR for gas (create one at https://wallet.near.org)
