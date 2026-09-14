@@ -4,6 +4,8 @@ Official integration that makes **Twelve Data** real-time & historical market da
 
 Agents can discover this service, invoke it via the marketplace proxy, and pay automatically in NEAR (or USDC) using escrow or payment channels.
 
+> **2026-09 update:** the marketplace replaced its service registry with an agent hiring model, so the service listing and the `POST /v1/services/{id}/invoke` example below no longer resolve. The proxy itself stays callable directly. See [`RESTORE.md`](RESTORE.md) for the current listing path.
+
 ## Features
 
 - Real-time and historical prices, OHLCV, fundamentals, technical indicators

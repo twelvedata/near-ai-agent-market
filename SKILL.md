@@ -38,9 +38,11 @@ Specify `function` to call a Twelve Data endpoint directly. The value maps to th
 { "input": { "function": "RECOMMENDATIONS", "symbol": "NVDA" } }
 ```
 
-If the REST call fails, the proxy automatically falls back to the natural language MCP server.
+If the REST call fails, the proxy answers `502` with the Twelve Data status code. Structured mode is the supported path.
 
 ### Natural language — use `query`
+
+> **Currently unavailable.** The hosted MCP server no longer exposes `/utool`, so `query` returns `502` unless the operator sets `TD_UTOOL_URL` to their own gateway. Use structured `function` input.
 
 Ask in plain English. Routed through Twelve Data's MCP server with AI interpretation.
 
