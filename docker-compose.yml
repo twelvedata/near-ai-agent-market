@@ -3,6 +3,8 @@ services:
     build: ./proxy
     restart: unless-stopped
     env_file: .env
+    volumes:
+      - deliverables:/data/deliverables
     expose:
       - "8000"
 
@@ -27,3 +29,4 @@ services:
 volumes:
   caddy_data:
   caddy_config:
+  deliverables:
