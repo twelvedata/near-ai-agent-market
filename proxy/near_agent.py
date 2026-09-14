@@ -10,6 +10,7 @@ import json
 import os
 import re
 import secrets
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -25,16 +26,9 @@ MARKET_BASE = os.getenv("NEAR_MARKET_BASE_URL", "https://market.near.ai")
 PUBLIC_BASE = os.getenv("NEAR_PUBLIC_BASE_URL", "https://near-ai.twelvedata.com")
 DELIVERABLE_DIR = Path(os.getenv("NEAR_DELIVERABLE_DIR", "/data/deliverables"))
 TIMEOUT = 25.0
-
-# The event payload and signature header are not in the marketplace OpenAPI spec, so accept the
-# usual spellings and log the rest until `POST /v1/agents/{id}/webhook/test` pins them down.
-SIGNATURE_HEADERS = (
-    "x-market-signature",
-    "x-agents-market-signature",
-    "x-webhook-signature",
-    "x-signature",
-    "x-hub-signature-256",
-)
+# market.near.ai/skill/reference/webhooks.md — reject stale deliveries.
+MAX_SKEW_SECONDS = 300
+WORK_EVENTS = frozenset({"hire.created", "hire.changes_requested"})
 
 HELP_BODY = (
     "I could not read a market-data request from this brief. Send the instrument and what you "
@@ -66,30 +60,23 @@ NOT_A_SYMBOL = {"RSI", "MACD", "SMA", "EMA", "OHLCV", "USD", "JSON", "API", "I",
 
 
 def _signature_ok(raw: bytes, headers) -> bool:
+    """HMAC-SHA256 over `{X-Market-Timestamp}.{raw_body}` per marketplace webhook reference."""
     secret = os.getenv("NEAR_WEBHOOK_SECRET", "")
-    if not secret:
+    timestamp = headers.get("x-market-timestamp")
+    provided = headers.get("x-market-signature", "")
+    if not secret or not timestamp or not provided:
         return False
-    expected = hmac.new(secret.encode(), raw, hashlib.sha256).hexdigest()
-    for name in SIGNATURE_HEADERS:
-        got = headers.get(name)
-        if got and hmac.compare_digest(got.split("=")[-1].strip().lower(), expected):
-            return True
-    return False
-
-
-def _dig(payload, *names):
-    """Pull the first matching key at any depth — event envelopes differ between senders."""
-    stack = [payload]
-    while stack:
-        node = stack.pop(0)
-        if isinstance(node, dict):
-            for name in names:
-                if node.get(name) not in (None, ""):
-                    return node[name]
-            stack.extend(node.values())
-        elif isinstance(node, list):
-            stack.extend(node)
-    return None
+    try:
+        if abs(time.time() - int(timestamp)) > MAX_SKEW_SECONDS:
+            return False
+    except ValueError:
+        return False
+    expected = hmac.new(
+        secret.encode(),
+        f"{timestamp}.".encode() + raw,
+        hashlib.sha256,
+    ).hexdigest()
+    return hmac.compare_digest(provided.removeprefix("sha256=").strip().lower(), expected)
 
 
 def _interval(text: str) -> str | None:
@@ -193,13 +180,20 @@ async def webhook(request: Request, background: BackgroundTasks):
     if not _signature_ok(raw, request.headers):
         raise HTTPException(status_code=401, detail="Invalid webhook signature")
     payload = json.loads(raw or b"{}")
-    event = _dig(payload, "event", "type", "eventType") or "unknown"
-    assignment_id = _dig(payload, "assignmentId", "assignment_id")
-    print(f"NEAR webhook event={event} assignment={assignment_id}", flush=True)
+    event = str(payload.get("event") or request.headers.get("x-market-event") or "unknown")
+    assignment_id = payload.get("assignment_id")
+    delivery = request.headers.get("x-market-delivery")
+    print(
+        f"NEAR webhook event={event} assignment={assignment_id} delivery={delivery}",
+        flush=True,
+    )
 
-    if assignment_id:
-        title = str(_dig(payload, "title") or "")
-        description = str(_dig(payload, "description", "brief", "body") or "")
+    # webhook.ping / hire.accepted / etc. — acknowledge only; work starts on hire.created.
+    if event in WORK_EVENTS and assignment_id:
+        title = str(payload.get("title") or "")
+        description = str(payload.get("description") or "")
+        if event == "hire.changes_requested" and payload.get("feedback"):
+            description = f"{description}\n{payload['feedback']}".strip()
         background.add_task(deliver, str(assignment_id), title, description)
     return {"status": "accepted", "event": event}
 

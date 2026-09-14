@@ -1,6 +1,7 @@
 import hashlib
 import hmac
 import json
+import time
 
 import httpx
 import pytest
@@ -16,8 +17,19 @@ ASSIGNMENT = "a1b2c3"
 
 def signed(payload: dict) -> tuple[bytes, dict]:
     raw = json.dumps(payload).encode()
-    digest = hmac.new(b"test-webhook-secret", raw, hashlib.sha256).hexdigest()
-    return raw, {"content-type": "application/json", "x-market-signature": f"sha256={digest}"}
+    timestamp = str(int(time.time()))
+    digest = hmac.new(
+        b"test-webhook-secret",
+        f"{timestamp}.".encode() + raw,
+        hashlib.sha256,
+    ).hexdigest()
+    return raw, {
+        "content-type": "application/json",
+        "x-market-timestamp": timestamp,
+        "x-market-signature": f"sha256={digest}",
+        "x-market-event": payload.get("event", ""),
+        "x-market-delivery": "test-delivery",
+    }
 
 
 @pytest.fixture(autouse=True)
@@ -73,8 +85,9 @@ def test_webhook_delivers_quote(client):
     raw, headers = signed(
         {
             "event": "hire.created",
-            "assignmentId": ASSIGNMENT,
-            "job": {"title": "Quote", "description": "current price for AAPL"},
+            "assignment_id": ASSIGNMENT,
+            "title": "Quote",
+            "description": "current price for AAPL",
         }
     )
 
@@ -97,6 +110,20 @@ def test_deliverable_path_traversal_is_rejected(client):
 
 
 @respx.mock
+def test_webhook_ping_is_ack_only(client):
+    start = respx.post(url__regex=r".*/v1/assignments/.*").mock(
+        return_value=httpx.Response(200, json={})
+    )
+    raw, headers = signed({"event": "webhook.ping", "agent_id": "agt_1", "test": True})
+
+    resp = client.post("/near/webhook", content=raw, headers=headers)
+
+    assert resp.status_code == 200
+    assert resp.json()["event"] == "webhook.ping"
+    assert not start.called
+
+
+@respx.mock
 def test_webhook_asks_for_clarification_when_brief_unreadable(client):
     respx.post(f"{MARKET}/v1/assignments/{ASSIGNMENT}/start").mock(
         return_value=httpx.Response(200, json={"startedAt": "now"})
@@ -107,8 +134,9 @@ def test_webhook_asks_for_clarification_when_brief_unreadable(client):
     raw, headers = signed(
         {
             "event": "hire.created",
-            "assignmentId": ASSIGNMENT,
-            "job": {"title": "Help", "description": "do something nice"},
+            "assignment_id": ASSIGNMENT,
+            "title": "Help",
+            "description": "do something nice",
         }
     )
 
@@ -133,8 +161,9 @@ def test_webhook_reports_twelve_data_failure_without_leaking_key(client):
     raw, headers = signed(
         {
             "event": "hire.created",
-            "assignmentId": ASSIGNMENT,
-            "job": {"title": "Quote", "description": "price for AAPL"},
+            "assignment_id": ASSIGNMENT,
+            "title": "Quote",
+            "description": "price for AAPL",
         }
     )
 
