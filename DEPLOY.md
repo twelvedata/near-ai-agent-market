@@ -129,6 +129,7 @@ In the GitHub repo → **Settings → Secrets and variables → Actions**, add:
 | `VPS_HOST` | VPS IP or hostname |
 | `VPS_USER` | `deploy` |
 | `VPS_SSH_KEY` | Private SSH key (matching the pubkey in `/home/deploy/.ssh/authorized_keys`) |
+| `TWELVE_DATA_API_KEY` | Used by the `Sync env` workflow to rotate the key in the VPS `.env` without SSH access |
 
 Push any commit to `main` — the workflow in `.github/workflows/deploy.yml` will SSH in, `git pull`, and `docker compose up -d`.
 
