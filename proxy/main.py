@@ -46,6 +46,13 @@ async def _verify_token(authorization: str = Header(None)):
         raise HTTPException(status_code=401, detail="Unauthorized")
 
 
+def _mask_key(text: str) -> str:
+    """Twelve Data echoes the request in error bodies, so the key must not reach the caller."""
+    if TWELVE_DATA_API_KEY:
+        text = text.replace(TWELVE_DATA_API_KEY, "***")
+    return text
+
+
 def _scrub(data):
     if not isinstance(data, dict):
         return data
@@ -80,7 +87,7 @@ async def invoke(request: Request, _=Depends(_verify_token)):
     input_data = body.get("input", {})
     caller_id = request.headers.get("x-caller-agent-id", "unknown")
     mode = "function" if "function" in input_data else "query" if "query" in input_data else "invalid"
-    print(f"INVOKE caller={caller_id} mode={mode} input={input_data}", flush=True)
+    print(f"INVOKE caller={caller_id} mode={mode} input={_scrub(input_data)}", flush=True)
 
     try:
         async with httpx.AsyncClient(headers=_client_headers(), timeout=TIMEOUT) as client:
@@ -104,7 +111,7 @@ async def invoke(request: Request, _=Depends(_verify_token)):
                     if utool.status_code < 400:
                         resp = utool
                     else:
-                        detail = resp.text
+                        detail = _mask_key(resp.text)
                         raise HTTPException(
                             status_code=502,
                             detail=(
@@ -144,9 +151,11 @@ async def invoke(request: Request, _=Depends(_verify_token)):
         raise
     except httpx.HTTPStatusError as e:
         error_detail = e.response.text if hasattr(e.response, "text") else str(e)
-        raise HTTPException(status_code=e.response.status_code, detail=error_detail)
+        raise HTTPException(status_code=e.response.status_code, detail=_mask_key(error_detail))
     except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Failed to reach Twelve Data: {str(e)}")
+        raise HTTPException(
+            status_code=502, detail=_mask_key(f"Failed to reach Twelve Data: {str(e)}")
+        )
 
 
 @app.get("/health")

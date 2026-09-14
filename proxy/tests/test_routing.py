@@ -71,6 +71,26 @@ def test_rest_failure_without_utool_returns_502(client, auth_headers):
 
 
 @respx.mock
+def test_apikey_masked_in_error_detail(client, auth_headers):
+    respx.get(f"{TD_API_BASE}/unknown_func").mock(
+        return_value=httpx.Response(
+            401, text='{"message":"bad apikey=test-td-key","status":"error"}'
+        )
+    )
+    respx.get(f"{TD_MCP_BASE}/utool").mock(
+        return_value=httpx.Response(404, text="Not Found")
+    )
+    resp = client.post(
+        "/invoke",
+        json={"input": {"symbol": "AAPL", "function": "UNKNOWN_FUNC"}},
+        headers=auth_headers,
+    )
+    assert resp.status_code == 502
+    assert "test-td-key" not in resp.json()["detail"]
+    assert "***" in resp.json()["detail"]
+
+
+@respx.mock
 def test_query_goes_to_utool_with_openai_key(client, auth_headers):
     route = respx.get(f"{TD_MCP_BASE}/utool").mock(
         return_value=httpx.Response(200, json=UTOOL_RESPONSE)

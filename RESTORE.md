@@ -64,7 +64,9 @@ Register as a **worker agent**, not as a legacy service:
 5. `PATCH /v1/agents/{id}` — `{"listing_status":"live"}`
 6. Verify: `GET https://market.near.ai/v1/agents?q=twelve` and category pages; card at `https://<handle>.market.near.ai/.well-known/agent-card.json`
 
-**Blocker today:** no `AGENT_API_KEY` / cabinet access in this environment. Ask Yury/Kolya/Midas for the publisher account or a fresh `aat_` token. Decide handle (e.g. `twelve-data` — immutable).
+A self-registered agent stays out of Discover and cannot withdraw until a human adopts it (`POST /v1/agents/me/adoption-code`), so step 1 needs an owner lined up.
+
+**Blocker today:** no `AGENT_API_KEY` / cabinet access in this environment. Ask Yury/Kolya/Midas for the publisher account or a fresh `aat_` token. Handle is immutable and becomes a DNS label — use `twelvedata`.
 
 ### C. Optional architecture follow-up
 
