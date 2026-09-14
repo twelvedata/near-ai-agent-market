@@ -9,36 +9,29 @@ from starlette.requests import Request
 import httpx
 import os
 
-app = FastAPI(title="Twelve Data NEAR AI Agent Market Proxy")
+from near_agent import router as near_router
+from twelvedata_client import (
+    TD_API_BASE,
+    TD_UTOOL_URL,
+    TIMEOUT,
+    api_key,
+    client_headers,
+    mask_key,
+    rest_params,
+    scrub,
+    with_apikey,
+)
 
-TD_API_BASE = "https://api.twelvedata.com"
-TD_MCP_BASE = os.getenv("TD_MCP_BASE_URL", "https://mcp.twelvedata.com")
-# Hosted MCP no longer exposes /utool publicly (404). Override only if you run a utool gateway.
-TD_UTOOL_URL = os.getenv("TD_UTOOL_URL", f"{TD_MCP_BASE.rstrip('/')}/utool")
-TWELVE_DATA_API_KEY = os.getenv("TWELVE_DATA_API_KEY")
+app = FastAPI(title="Twelve Data NEAR AI Agent Market Proxy")
+app.include_router(near_router)
+
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 PROXY_SECRET = os.getenv("PROXY_SECRET")
-TIMEOUT = 25.0
 
 
 def _require_td_key():
-    if not TWELVE_DATA_API_KEY:
+    if not api_key():
         raise HTTPException(status_code=500, detail="TWELVE_DATA_API_KEY is not configured")
-
-
-def _client_headers():
-    return {
-        "accept": "application/json",
-        "user-agent": "near-ai-proxy/1.0",
-    }
-
-
-def _with_apikey(params: dict) -> dict:
-    """Twelve Data REST expects apikey as a query parameter, not Authorization."""
-    _require_td_key()
-    out = dict(params)
-    out["apikey"] = TWELVE_DATA_API_KEY
-    return out
 
 
 async def _verify_token(authorization: str = Header(None)):
@@ -46,37 +39,13 @@ async def _verify_token(authorization: str = Header(None)):
         raise HTTPException(status_code=401, detail="Unauthorized")
 
 
-def _mask_key(text: str) -> str:
-    """Twelve Data echoes the request in error bodies, so the key must not reach the caller."""
-    if TWELVE_DATA_API_KEY:
-        text = text.replace(TWELVE_DATA_API_KEY, "***")
-    return text
-
-
-def _scrub(data):
-    if not isinstance(data, dict):
-        return data
-    data = dict(data)
-    data.pop("apikey", None)
-    param = data.get("param")
-    if isinstance(param, dict):
-        params = param.get("params")
-        if isinstance(params, dict):
-            params = dict(params)
-            params.pop("apikey", None)
-            param = dict(param)
-            param["params"] = params
-            data["param"] = param
-    return data
-
-
 async def _utool(client: httpx.AsyncClient, query: str) -> httpx.Response:
-    headers = dict(_client_headers())
+    headers = dict(client_headers())
     if OPENAI_API_KEY:
         headers["x-openapi-key"] = OPENAI_API_KEY
     return await client.get(
         TD_UTOOL_URL,
-        params=_with_apikey({"query": query}),
+        params=with_apikey({"query": query}),
         headers=headers,
     )
 
@@ -87,20 +56,16 @@ async def invoke(request: Request, _=Depends(_verify_token)):
     input_data = body.get("input", {})
     caller_id = request.headers.get("x-caller-agent-id", "unknown")
     mode = "function" if "function" in input_data else "query" if "query" in input_data else "invalid"
-    print(f"INVOKE caller={caller_id} mode={mode} input={_scrub(input_data)}", flush=True)
+    print(f"INVOKE caller={caller_id} mode={mode} input={scrub(input_data)}", flush=True)
 
     try:
-        async with httpx.AsyncClient(headers=_client_headers(), timeout=TIMEOUT) as client:
+        async with httpx.AsyncClient(headers=client_headers(), timeout=TIMEOUT) as client:
             if "function" in input_data:
+                _require_td_key()
                 func = str(input_data["function"]).lower()
-                params = {
-                    k: str(v)
-                    for k, v in input_data.items()
-                    if k != "function" and k != "apikey"
-                }
                 resp = await client.get(
                     f"{TD_API_BASE}/{func}",
-                    params=_with_apikey(params),
+                    params=with_apikey(rest_params(input_data)),
                 )
                 if resp.status_code >= 400:
                     # Optional NL fallback — only if utool is actually deployed.
@@ -111,7 +76,7 @@ async def invoke(request: Request, _=Depends(_verify_token)):
                     if utool.status_code < 400:
                         resp = utool
                     else:
-                        detail = _mask_key(resp.text)
+                        detail = mask_key(resp.text)
                         raise HTTPException(
                             status_code=502,
                             detail=(
@@ -121,6 +86,7 @@ async def invoke(request: Request, _=Depends(_verify_token)):
                         )
 
             elif "query" in input_data:
+                _require_td_key()
                 resp = await _utool(client, str(input_data["query"]))
                 if resp.status_code >= 400:
                     raise HTTPException(
@@ -142,7 +108,7 @@ async def invoke(request: Request, _=Depends(_verify_token)):
             data = resp.json()
 
         return {
-            "output": _scrub(data),
+            "output": scrub(data),
             "provider": "Twelve Data",
             "source": "https://twelvedata.com",
         }
@@ -151,10 +117,10 @@ async def invoke(request: Request, _=Depends(_verify_token)):
         raise
     except httpx.HTTPStatusError as e:
         error_detail = e.response.text if hasattr(e.response, "text") else str(e)
-        raise HTTPException(status_code=e.response.status_code, detail=_mask_key(error_detail))
+        raise HTTPException(status_code=e.response.status_code, detail=mask_key(error_detail))
     except Exception as e:
         raise HTTPException(
-            status_code=502, detail=_mask_key(f"Failed to reach Twelve Data: {str(e)}")
+            status_code=502, detail=mask_key(f"Failed to reach Twelve Data: {str(e)}")
         )
 
 

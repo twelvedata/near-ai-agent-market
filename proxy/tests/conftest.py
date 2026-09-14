@@ -6,6 +6,8 @@ from fastapi.testclient import TestClient
 os.environ.setdefault("TWELVE_DATA_API_KEY", "test-td-key")
 os.environ.setdefault("OPENAI_API_KEY", "test-openai-key")
 os.environ.setdefault("PROXY_SECRET", "test-secret")
+os.environ.setdefault("NEAR_WEBHOOK_SECRET", "test-webhook-secret")
+os.environ.setdefault("NEAR_AGENT_TOKEN", "aat_test")
 
 from main import app  # noqa: E402
 

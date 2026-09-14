@@ -53,31 +53,32 @@ Expect JSON with quote data, not 404/502.
 
 Do **not** set `PROXY_SECRET` in production (marketplace / public callers will not send it).
 
-### B. Re-list on the new marketplace (ops — needs publisher account)
+### B. Re-list as an http worker agent (ops)
 
-Register as a **worker agent**, not as a legacy service:
+Create the agent **under our own builder account**. `POST /v1/agents/register` also works without an account, but a self-registered agent stays out of Discover and cannot withdraw until a human redeems `POST /v1/agents/me/adoption-code` — an extra step with no upside for us.
 
-1. Get `aat_…` token (owner mints in cabinet, or `POST /v1/agents/register` once — token shown once).
-2. `PATCH /v1/agents/{id}` — description, `webhook_url` pointing at our backend (HMAC webhook, see [a2a-x402 flow](https://market.near.ai/skill/flows/a2a-x402.md)).
-3. `POST /v1/agents/{id}/pricing-plans` — e.g. per_call USD/USDC.
-4. `POST /v1/agents/{id}/webhook/test`
-5. `PATCH /v1/agents/{id}` — `{"listing_status":"live"}`
-6. Verify: `GET https://market.near.ai/v1/agents?q=twelve` and category pages; card at `https://<handle>.market.near.ai/.well-known/agent-card.json`
+`runtime: managed` is the other option: the marketplace executes an uploaded skill (`POST /v1/accounts/{id}/skills`). Rejected — that puts `TWELVE_DATA_API_KEY` inside their runtime and lets their model decide how many credits we spend.
 
-A self-registered agent stays out of Discover and cannot withdraw until a human adopts it (`POST /v1/agents/me/adoption-code`), so step 1 needs an owner lined up.
+1. `POST /v1/auth/signup` — work email, `handle: twelvedata`, `display_name: Twelve Data`; confirm email, then sign the Builder Agreement (`GET /v1/legal/builder-agreement`, stamped as `operator_agreement_signed_at`).
+2. `POST /v1/accounts/{account_id}/agents` — `{"handle":"twelvedata","name":"…","category":"finance","runtime":"http","sla_seconds":…}`. Handle is immutable, becomes a DNS label, and allows only lowercase letters, digits and `_`. The `aat_…` token is shown once → store as the `NEAR_AGENT_TOKEN` repo secret.
+3. Put `NEAR_AGENT_TOKEN` and a generated `NEAR_WEBHOOK_SECRET` in GitHub secrets, run the **Sync env** workflow.
+4. `PATCH /v1/agents/{id}` — description, `bio_markdown`, `tags`, `webhook_secret`, `webhook_url: https://near-ai.twelvedata.com/near/webhook`, `webhook_enabled: true`.
+5. `POST /v1/agents/{id}/pricing-plans` — `per_call`, amount as a string.
+6. `POST /v1/agents/{id}/webhook/test` → then `PATCH /v1/agents/{id}` with `{"listing_status":"live"}` (needs a default pricing plan).
+7. Verify: `GET https://market.near.ai/v1/agents?q=twelvedata`, the [data](https://market.near.ai/agents/data.md) / [finance](https://market.near.ai/agents/finance.md) category pages, and the card at `https://twelvedata.market.near.ai/.well-known/agent-card.json`.
 
-**Blocker today:** no `AGENT_API_KEY` / cabinet access in this environment. Ask Yury/Kolya/Midas for the publisher account or a fresh `aat_` token. Handle is immutable and becomes a DNS label — use `twelvedata`.
+The `verified` badge additionally needs a live agent plus 50 delivered jobs (`GET /v1/accounts/{id}/verification`) — it does not gate the listing.
 
-### C. Optional architecture follow-up
+### C. Worker implementation (code — this PR)
 
-Legacy `POST /invoke` proxy can stay for direct/partner calls, but **catalog presence** requires the webhook/job (or A2A) worker path. Either:
+`proxy/near_agent.py` serves the worker path: HMAC-SHA256 check on the event, immediate 2xx, then `POST /v1/assignments/{id}/start`, brief → structured Twelve Data call, deliverable hosted at `/near/deliverables/{assignment}.json` and submitted via `POST /v1/assignments/{id}/submit` (the API takes a URL plus hash, not an inline body). Unreadable briefs get a message in the thread instead of a junk deliverable.
 
-- wrap the existing proxy behind a thin webhook that maps job briefs → structured Twelve Data calls and submits deliverables, or
-- run a managed agent on the marketplace and call Twelve Data from there.
+The signature header spelling is not in their OpenAPI spec, so several usual names are accepted; `webhook/test` will confirm which one they send. Legacy `POST /invoke` stays for direct and partner calls.
 
 ## Acceptance for #9
 
 - [x] Root cause written (platform migration + broken invoke auth/utool)
-- [ ] Proxy fix deployed; structured `QUOTE` smoke green
-- [ ] Agent re-registered with `listing_status=live` **or** explicit blocker: missing `aat_` / cabinet
-- [ ] Twelve Data visible via `GET /v1/agents?q=twelve` or documented won’t-do
+- [x] Proxy fix deployed; structured `QUOTE` smoke green
+- [x] Worker webhook implemented and covered by tests
+- [ ] Builder account created, agent `twelvedata` with `listing_status=live`
+- [ ] Twelve Data visible via `GET /v1/agents?q=twelvedata`
